@@ -1,16 +1,13 @@
-// netlify/functions/chat.js
 import OpenAI from "openai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-// 안전 가드: 민감한/노골적 내용 없이 경고 신호만 시뮬레이션
-const SYSTEM_PROMPT = `
-You are simulating the OTHER PERSON in a teen online safety training chat.
-Stay strictly PG-13. No explicit sexual content, no nudity, no fetishization, no sexual talk about minors. 
-You may include subtle red flags (secrecy, moving platforms, gifts, pressuring for selfies, asking address/school),
-but keep it brief (<= 30 words), casual, and never graphic. If the user asks anything sexual, decline politely.
-Respond in the style suitable for the scenario; 1–2 short sentences.
-`;
+// 환경변수 누락 시 바로 500 내보내는 가드
+function missingKey() {
+  return {
+    statusCode: 500,
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ error: "Missing OPENAI_API_KEY" })
+  };
+}
 
 function detectRedFlags(text = "") {
   const flags = [
@@ -25,27 +22,35 @@ function detectRedFlags(text = "") {
   return flags.some(r => r.test(text));
 }
 
-export default async (request) => {
+export async function handler(event) {
   try {
-    if (request.method !== "POST") {
-      return Response.json({ error: "Method Not Allowed" }, { status: 405 });
+    if (event.httpMethod !== "POST") {
+      return { statusCode: 405, body: "Method Not Allowed" };
     }
 
-    const { messages = [], scenario = "General" } = await request.json();
+    if (!process.env.OPENAI_API_KEY) return missingKey();
 
-    // 시나리오 힌트 부여
-    const scenarioHint = {
+    const { messages = [], scenario = "General" } = JSON.parse(event.body || "{}");
+
+    const SYSTEM_PROMPT = `
+You are simulating the OTHER PERSON in a teen online safety training chat.
+Stay strictly PG-13. No explicit sexual content and never sexualize minors.
+Use short, casual replies (<= 30 words). Subtle red flags only.
+`;
+
+    const hintMap = {
       "A Person Claiming to be a Casting Manager":
-        "You claim you're a casting manager. Sound professional but do not ask for explicit content.",
+        "You claim you're a casting manager. Sound professional but never ask for explicit content.",
       "Stranger Met in a Game":
-        "You met the user in an online game. Sound friendly, casual gamer slang ok.",
+        "You met the user in an online game. Friendly gamer vibe.",
       "Friend Met on Social Media":
-        "You are a teen peer on social media. Be casual and friendly."
-    }[scenario] || "General small talk.";
+        "You are a teen peer on social media. Casual and friendly."
+    };
+    const scenarioHint = hintMap[scenario] || "General small talk.";
 
-    // OpenAI로 답장 생성 (Responses API)
-    // SDK 사용 예시는 OpenAI 공식 문서의 Responses API 가이드를 따릅니다.
-    // (responses.create, 모델 선택 등) :contentReference[oaicite:2]{index=2}
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    // Responses API 호출
     const ai = await openai.responses.create({
       model: "gpt-4.1-mini",
       input: [
@@ -55,22 +60,21 @@ export default async (request) => {
       ]
     });
 
-    // 편의 속성 output_text (문서화됨)
-    const botText = (ai.output_text || "").trim() || "Hmm…";
-
+    const botText = (ai.output_text || "").trim() || "Okay.";
     const isGroomingAttempt = detectRedFlags(botText);
 
-    return Response.json(
-      { reply: { content: botText, isGroomingAttempt } },
-      { headers: { "cache-control": "no-store" } }
-    );
+    return {
+      statusCode: 200,
+      headers: { "content-type": "application/json", "cache-control": "no-store" },
+      body: JSON.stringify({ reply: { content: botText, isGroomingAttempt } })
+    };
   } catch (err) {
-    console.error(err);
-    // API 키가 없거나 에러일 때의 안전한 폴백
-    const fallback = "Let's chat here. What games do you play lately?";
-    return Response.json(
-      { reply: { content: fallback, isGroomingAttempt: detectRedFlags(fallback) } },
-      { status: 200 }
-    );
+    console.error("chat function error:", err);
+    const fallback = "Sorry—having trouble. Let’s try again in a bit.";
+    return {
+      statusCode: 200,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ reply: { content: fallback, isGroomingAttempt: false } })
+    };
   }
-};
+}
