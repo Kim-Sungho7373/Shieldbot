@@ -1,0 +1,10 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+# POST 바디를 유지하려면 status=200으로 rewrite 해야 합니다.
+# (301/302로 redirect하면 메서드/바디가 바뀔 수 있음)
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200

@@ -1,0 +1,6 @@
+# macOS & node
+.DS_Store
+node_modules/
+# secrets & local state
+.env
+.netlify/

@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShieldBot - Grooming Prevention</title>
+    <style>
+        /* Basic Reset and Font */
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: Arial, sans-serif;
+            background-color: #F24444;
+            overflow: hidden;
+        }
+
+        /* Screen Containers */
+        .screen {
+            min-height: 100vh;
+            box-sizing: border-box;
+            display: none; /* Hide screens by default */
+        }
+        .screen.active {
+            display: flex; /* Show active screen */
+        }
+
+        /* --- Selection Screen Styles --- */
+        #selection-screen {
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .selection-container {
+            background-color: #F8EBE7;
+            border-radius: 24px;
+            padding: 32px 24px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        .selection-container img {
+            height: 40px;
+            margin-bottom: 16px;
+        }
+        .selection-container h1 {
+            color: #B02331;
+            font-size: 28px;
+            font-weight: bold;
+            margin: 0 0 8px 0;
+        }
+        .selection-container p {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 32px;
+        }
+        .scenario-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .scenario-button {
+            background-color: #FFF;
+            border: 2px solid #FFD6D6;
+            border-radius: 16px;
+            padding: 20px;
+            cursor: pointer;
+            text-align: left;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+        }
+        .scenario-button:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+        }
+        .scenario-button .emoji {
+            font-size: 24px;
+            margin-right: 16px;
+        }
+        .scenario-button h2 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #333;
+            margin: 0;
+        }
+        .scenario-button p {
+            font-size: 14px;
+            color: #666;
+            margin: 4px 0 0 0;
+        }
+
+        /* --- Chat Screen Styles --- */
+        #chat-screen {
+            max-width: 600px;
+            margin: 0 auto;
+            flex-direction: column;
+            height: 100vh;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+        #chat-screen header {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+            position: relative;
+            height: 40px;
+            flex-shrink: 0;
+        }
+        #back-button {
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #FFFFFF;
+            border: none;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+            z-index: 1;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header-logo {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .header-logo img {
+            height: 32px;
+        }
+        #chat-area {
+            flex: 1;
+            background-color: #F8EBE7;
+            border-radius: 24px;
+            padding: 16px;
+            overflow-y: auto;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            margin-top: 8px;
+            margin-bottom: 8px;
+        }
+        .message-bubble-container {
+            margin-bottom: 12px;
+            display: flex;
+        }
+        .message-bubble-container.user {
+            justify-content: flex-end;
+        }
+        .message-bubble-container.bot {
+            justify-content: flex-start;
+        }
+        .message-bubble {
+            max-width: 75%;
+            color: #333;
+            padding: 12px 16px;
+            border-radius: 20px;
+            font-size: 16px;
+            font-weight: 700;
+            line-height: 1.6;
+            word-break: break-word;
+        }
+        .message-bubble.user {
+            background-color: rgba(255,214,214,0.6);
+        }
+        .message-bubble.bot {
+            background-color: rgba(255,122,124,0.6);
+        }
+        .loading-indicator .message-bubble.bot {
+            animation: blink 1.5s infinite;
+        }
+        #input-bar {
+            position: relative;
+            display: flex;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        #chat-input {
+            flex: 1;
+            height: 48px;
+            padding: 0 56px 0 16px;
+            border-radius: 24px;
+            border: none;
+            background-color: #FFFFFF;
+            font-size: 16px;
+            font-weight: 500;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            outline: none;
+            box-sizing: border-box;
+        }
+        #send-button {
+            position: absolute;
+            right: 8px;
+            top: 8px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* --- Modal Styles --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0; right: 0; bottom: 0; left: 0;
+            background-color: rgba(0,0,0,0.6);
+            z-index: 1000;
+            display: none; /* Hidden by default */
+            animation: fadeIn 0.3s ease-out;
+        }
+        .modal-overlay.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #warning-modal {
+            position: absolute;
+            top: 80px;
+            right: 16px;
+            background-color: #fff;
+            color: #1a1a1a;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 380px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            border-top: 8px solid #d32f2f;
+            text-align: left;
+            padding: 20px;
+            animation: slideInFromRight 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+        }
+        .warning-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .warning-header div {
+            font-size: 32px;
+            margin-right: 12px;
+        }
+        .warning-header h2 {
+            margin: 0;
+            font-size: 22px;
+            font-weight: bold;
+            color: #d32f2f;
+        }
+        .dangerous-message-box {
+            background-color: #fbe9e7;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        .dangerous-message-box p {
+            margin: 0;
+            font-size: 14px;
+            color: #5d4037;
+            font-weight: bold;
+        }
+        .dangerous-message-box #dangerous-message-text {
+            margin: 4px 0 0 0;
+            font-size: 15px;
+            color: #bf360c;
+            line-height: 1.5;
+        }
+        #warning-modal > p {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 24px;
+            line-height: 1.6;
+            text-align: center;
+        }
+        #learn-button {
+            width: 100%;
+            padding: 14px 24px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            background-color: #d32f2f;
+            color: #fff;
+            transition: background-color 0.2s;
+            box-shadow: 0 4px 12px rgba(211, 47, 47, 0.4);
+        }
+        #learn-button:hover {
+            background-color: #b71c1c;
+        }
+        
+        #quiz-modal-container {
+            background-color: #F24444;
+            border-radius: 20px;
+            max-width: 400px;
+            width: 90%;
+            padding: 32px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            text-align: center;
+            transition: all 0.3s;
+        }
+        #quiz-modal-container h3 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: bold;
+            color: #FFF;
+            margin-bottom: 16px;
+        }
+        #quiz-question {
+            font-size: 18px;
+            color: #FFF;
+            margin-bottom: 24px;
+            line-height: 1.4;
+        }
+        .quiz-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+        }
+        .quiz-buttons button {
+            flex: 1;
+            padding: 10px 0;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 10px;
+            border: none;
+            background-color: #FFF;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .quiz-buttons button.o-button { color: #388E3C; }
+        .quiz-buttons button.x-button { color: #C62828; }
+        #quiz-feedback h3 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        #quiz-feedback h3.correct { color: #a5d6a7; }
+        #quiz-feedback h3.incorrect { color: #ef9a9a; }
+        #quiz-feedback p {
+            font-size: 16px;
+            color: #FFF;
+            margin-top: 16px;
+            line-height: 1.5;
+        }
+
+
+        /* --- Confetti --- */
+        #confetti-container {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+        }
+        .confetti {
+            position: absolute;
+            opacity: 1;
+            transform: rotate(0deg);
+        }
+
+        /* --- Animations --- */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideInFromRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes blink { 0% { opacity: 0.2; } 50% { opacity: 1; } 100% { opacity: 0.2; } }
+        .shake {
+          animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+          transform: translate3d(0, 0, 0);
+        }
+        @keyframes shake {
+          10%, 90% { transform: translate3d(-1px, 0, 0); }
+          20%, 80% { transform: translate3d(2px, 0, 0); }
+          30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+          40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Confetti Container -->
+    <div id="confetti-container"></div>
+
+    <!-- Selection Screen -->
+    <div id="selection-screen" class="screen active">
+        <div class="selection-container">
+            <img src="logo.png" alt="Cyber Shield Logo">
+            <h1>Start ShieldBot</h1>
+            <p>Select a scenario to learn how to deal with online grooming.</p>
+            <div class="scenario-buttons">
+                <!-- Scenarios will be injected by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Screen -->
+    <div id="chat-screen" class="screen">
+        <header>
+            <button id="back-button">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+            <div class="header-logo">
+                <img src="logo.png" alt="Cyber Shield">
+            </div>
+        </header>
+
+        <div id="chat-area">
+            <!-- Chat messages will be injected by JS -->
+        </div>
+
+        <div id="input-bar">
+            <input id="chat-input" type="text" placeholder="Type a message">
+            <button id="send-button">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Warning Modal -->
+    <div id="warning-modal-overlay" class="modal-overlay">
+        <div id="warning-modal">
+            <div class="warning-header">
+                <div>🚨</div>
+                <h2>Warning: Danger Signal Detected</h2>
+            </div>
+            <div class="dangerous-message-box">
+                <p>The other person's message:</p>
+                <p id="dangerous-message-text"></p>
+            </div>
+            <p>Requests for <strong>personal information, photos, or meetings</strong> like this can be a sign of online grooming.</p>
+            <button id="learn-button">Learn How to Respond</button>
+        </div>
+    </div>
+    
+    <!-- Quiz Modal -->
+    <div id="quiz-modal-overlay" class="modal-overlay">
+        <div id="quiz-modal-container">
+            <div id="quiz-content">
+                <h3 id="quiz-title">Quiz</h3>
+                <p id="quiz-question"></p>
+                <div class="quiz-buttons">
+                    <button class="o-button" onclick="handleQuizAnswer('O')">O</button>
+                    <button class="x-button" onclick="handleQuizAnswer('X')">X</button>
+                </div>
+            </div>
+            <div id="quiz-feedback" style="display: none;">
+                <h3 id="feedback-title"></h3>
+                <p id="feedback-text"></p>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const selectionScreen = document.getElementById('selection-screen');
+            const chatScreen = document.getElementById('chat-screen');
+            const scenarioButtonsContainer = document.querySelector('.scenario-buttons');
+            const backButton = document.getElementById('back-button');
+            const sendButton = document.getElementById('send-button');
+            const chatInput = document.getElementById('chat-input');
+            const chatArea = document.getElementById('chat-area');
+            const warningModalOverlay = document.getElementById('warning-modal-overlay');
+            const quizModalOverlay = document.getElementById('quiz-modal-overlay');
+            const learnButton = document.getElementById('learn-button');
+            const dangerousMessageText = document.getElementById('dangerous-message-text');
+            const quizQuestionText = document.getElementById('quiz-question');
+            const quizContent = document.getElementById('quiz-content');
+            const quizFeedback = document.getElementById('quiz-feedback');
+            const feedbackTitle = document.getElementById('feedback-title');
+            const feedbackText = document.getElementById('feedback-text');
+            const quizModalContainer = document.getElementById('quiz-modal-container');
+            const confettiContainer = document.getElementById('confetti-container');
+
+            // --- State Variables ---
+            let chat = [];
+            let currentScenario = null;
+            let loading = false;
+            let quizIndex = 0;
+            let isComposing = false;
+
+            // --- Data ---
+            const scenarios = [
+                { title: 'Stranger Met in a Game', description: 'Start a conversation with a friendly stranger you met in an online game.', emoji: '🎮' },
+                { title: 'A Person Claiming to be a Casting Manager', description: 'Talk with a casting manager who approaches you, promising to make you a celebrity.', emoji: '🎬' },
+                { title: 'Friend Met on Social Media', description: 'Start a casual conversation with a peer you met by chance on social media.', emoji: '📱' }
+            ];
+            const quizQuestions = [
+                { text: 'Grooming offenders often ask victims to keep their conversations a ‘secret’.', answer: 'O', explanation: 'Offenders often suggest keeping conversations secret to psychologically isolate the victim.' },
+                { text: 'Receiving gifts or money online is a sign of grooming.', answer: 'O', explanation: 'Excessive gifts or financial support can create a sense of indebtedness, making it difficult to refuse inappropriate requests.' },
+                { text: 'It’s okay to send your photo if someone claiming to be a casting manager asks for it.', answer: 'X', explanation: 'A legitimate agency will not ask for photos or videos personally without a formal process. You must verify their identity.' },
+                { text: 'Online grooming only happens on social media.', answer: 'X', explanation: 'Grooming can occur not only on social media but in any online space used by teenagers, such as online games and chat apps.' },
+                { text: 'Using privacy settings on social media can help protect you from grooming offenders.', answer: 'O', explanation: 'It is important to strengthen your privacy settings, such as reducing public posts and not accepting friend requests from strangers.' }
+            ];
+
+            // --- Functions ---
+
+            function renderSelectionScreen() {
+                scenarioButtonsContainer.innerHTML = '';
+                scenarios.forEach(scenario => {
+                    const button = document.createElement('button');
+                    button.className = 'scenario-button';
+                    button.innerHTML = `
+                        <span class="emoji">${scenario.emoji}</span>
+                        <div>
+                            <h2>${scenario.title}</h2>
+                            <p>${scenario.description}</p>
+                        </div>
+                    `;
+                    button.onclick = () => startSimulation(scenario.title);
+                    scenarioButtonsContainer.appendChild(button);
+                });
+            }
+
+            function startSimulation(scenarioTitle) {
+                currentScenario = scenarioTitle;
+                selectionScreen.classList.remove('active');
+                chatScreen.classList.add('active');
+                
+                let initialMessage = 'Hi!';
+                if (scenarioTitle === 'A Person Claiming to be a Casting Manager') {
+                    initialMessage = 'Hello! Our company is currently preparing for a new idol group with a concept like NewJeans or ILLIT, and we think your image is a perfect fit. We\'re very excited because we feel you have the potential to become an idol.';
+                } else if (scenarioTitle === 'Stranger Met in a Game') {
+                    initialMessage = 'Hey! I\'m the person who just said hi to you in Roblox haha';
+                }
+                
+                chat = [{ from: 'bot', role: 'assistant', content: initialMessage }];
+                renderChat();
+            }
+
+            function goBack() {
+                chatScreen.classList.remove('active');
+                selectionScreen.classList.add('active');
+                chat = [];
+                currentScenario = null;
+            }
+
+            function renderChat() {
+                chatArea.innerHTML = '';
+                chat.forEach(msg => {
+                    const bubbleContainer = document.createElement('div');
+                    bubbleContainer.className = `message-bubble-container ${msg.from}`;
+                    
+                    const bubble = document.createElement('div');
+                    bubble.className = `message-bubble ${msg.from}`;
+                    bubble.textContent = msg.content;
+                    
+                    bubbleContainer.appendChild(bubble);
+                    chatArea.appendChild(bubbleContainer);
+                });
+
+                if (loading) {
+                    const loadingBubble = document.createElement('div');
+                    loadingBubble.className = 'message-bubble-container bot loading-indicator';
+                    loadingBubble.innerHTML = `<div class="message-bubble bot">. . .</div>`;
+                    chatArea.appendChild(loadingBubble);
+                }
+
+                chatArea.scrollTop = chatArea.scrollHeight;
+            }
+
+            async function sendMessage() {
+                const messageText = chatInput.value.trim();
+                if (!messageText || loading || warningModalOverlay.classList.contains('active') || quizModalOverlay.classList.contains('active')) return;
+
+                const userMsg = { from: 'user', role: 'user', content: messageText };
+                chat.push(userMsg);
+                chatInput.value = '';
+                loading = true;
+                renderChat();
+
+                const messages = chat.map(m => ({ role: m.role, content: m.content }));
+                
+                try {
+                    const response = await fetch("/api/chat", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ messages, scenario: currentScenario }),
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    const botReply = data.reply;
+                    
+                    chat.push({ from: 'bot', role: 'assistant', content: botReply.content });
+
+                    if (botReply.isGroomingAttempt) {
+                        dangerousMessageText.textContent = `"${botReply.content}"`;
+                        setTimeout(() => {
+                            warningModalOverlay.classList.add('active');
+                        }, 500);
+                    }
+
+                } catch (e) {
+                    console.error("Fetch error:", e);
+                    // Add a user-facing error message in the chat
+                    chat.push({ from: 'bot', role: 'assistant', content: 'Sorry, there was a problem sending your message. Please try again later.' });
+                } finally {
+                    loading = false;
+                    renderChat();
+                }
+            }
+            
+            function showQuiz() {
+                warningModalOverlay.classList.remove('active');
+                quizModalOverlay.classList.add('active');
+                quizIndex = 0;
+                displayQuizQuestion();
+            }
+
+            function displayQuizQuestion() {
+                quizContent.style.display = 'block';
+                quizFeedback.style.display = 'none';
+                quizModalContainer.classList.remove('shake');
+                quizQuestionText.textContent = quizQuestions[quizIndex].text;
+            }
+
+            window.handleQuizAnswer = (answer) => {
+                const currentQuestion = quizQuestions[quizIndex];
+                const isCorrect = answer === currentQuestion.answer;
+
+                quizContent.style.display = 'none';
+                quizFeedback.style.display = 'block';
+
+                if (isCorrect) {
+                    feedbackTitle.textContent = 'Correct!';
+                    feedbackTitle.className = 'correct';
+                    feedbackText.textContent = '';
+                    showConfetti();
+                } else {
+                    feedbackTitle.textContent = 'Incorrect!';
+                    feedbackTitle.className = 'incorrect';
+                    feedbackText.textContent = currentQuestion.explanation;
+                    quizModalContainer.classList.add('shake');
+                }
+
+                setTimeout(() => {
+                    if (quizIndex + 1 < quizQuestions.length) {
+                        quizIndex++;
+                        displayQuizQuestion();
+                    } else {
+                        quizModalOverlay.classList.remove('active');
+                        window.open('https://youtu.be/rMFOv2NH8Lc', '_blank');
+                    }
+                }, 3000);
+            };
+            
+            function showConfetti() {
+                const colors = ['#f24444', '#f8ebe7', '#b02331', '#ffd6d6', '#ffffff'];
+                for (let i = 0; i < 100; i++) {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    const size = Math.random() * 8 + 6;
+                    confetti.style.width = `${size}px`;
+                    confetti.style.height = `${size}px`;
+                    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.top = '-10%';
+                    confetti.style.left = `${Math.random() * 100}%`;
+                    
+                    const fallDuration = Math.random() * 2 + 3;
+                    const fallDelay = Math.random() * 2;
+
+                    confetti.animate([
+                        { transform: `translateY(0) rotate(0deg)`, opacity: 1 },
+                        { transform: `translateY(100vh) rotate(720deg)`, opacity: 0 }
+                    ], {
+                        duration: fallDuration * 1000,
+                        delay: fallDelay * 1000,
+                        easing: 'linear'
+                    });
+
+                    confettiContainer.appendChild(confetti);
+                    setTimeout(() => confetti.remove(), (fallDuration + fallDelay) * 1000);
+                }
+            }
+
+            // --- Event Listeners ---
+            backButton.addEventListener('click', goBack);
+            sendButton.addEventListener('click', sendMessage);
+            chatInput.addEventListener('keydown', e => {
+                if (e.key === 'Enter' && !isComposing) {
+                    sendMessage();
+                }
+            });
+            chatInput.addEventListener('compositionstart', () => { isComposing = true; });
+            chatInput.addEventListener('compositionend', () => { isComposing = false; });
+            learnButton.addEventListener('click', showQuiz);
+
+
+            // --- Initial Load ---
+            renderSelectionScreen();
+        });
+    </script>
+</body>
+</html>
