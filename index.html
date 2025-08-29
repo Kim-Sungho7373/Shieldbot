@@ -53,47 +53,9 @@
         .selection-container p {
             color: #333;
             font-size: 16px;
-            margin-bottom: 24px;
-        }
-
-        /* Archetype Selection Styles */
-        .archetype-selection {
-            margin-bottom: 24px;
-        }
-        .archetype-selection h3 {
-            font-size: 16px;
-            color: #B02331;
-            margin: 0 0 12px 0;
-            font-weight: 700;
-        }
-        .archetype-buttons {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-        }
-        .archetype-button {
-            background-color: #FFF;
-            border: 2px solid #FFD6D6;
-            border-radius: 12px;
-            padding: 8px 16px;
-            cursor: pointer;
-            transition: background-color 0.2s, border-color 0.2s, color 0.2s;
-            font-weight: 600;
-            font-size: 14px;
-            color: #555;
-        }
-        .archetype-button.active {
-            background-color: #B02331;
-            color: #FFF;
-            border-color: #B02331;
+            margin-bottom: 32px;
         }
         
-        .scenario-buttons-title {
-            font-size: 16px;
-            color: #B02331;
-            margin: 0 0 12px 0;
-            font-weight: 700;
-        }
         .scenario-buttons {
             display: flex;
             flex-direction: column;
@@ -430,17 +392,8 @@
         <div class="selection-container">
             <img src="https://assets.codepen.io/8292695/shield-logo.png" alt="Cyber Shield Logo">
             <h1>Start ShieldBot</h1>
-            <p>Select a personality and scenario to learn how to deal with online grooming.</p>
+            <p>Select a scenario to learn how to deal with online grooming.</p>
             
-            <!-- NEW: Archetype Selection -->
-            <div class="archetype-selection">
-                <h3>1. Select Bot Personality</h3>
-                <div class="archetype-buttons">
-                    <!-- Archetype buttons will be injected by JS -->
-                </div>
-            </div>
-
-            <h3 class="scenario-buttons-title">2. Select Scenario</h3>
             <div class="scenario-buttons">
                 <!-- Scenarios will be injected by JS -->
             </div>
@@ -511,7 +464,6 @@
             const selectionScreen = document.getElementById('selection-screen');
             const chatScreen = document.getElementById('chat-screen');
             const scenarioButtonsContainer = document.querySelector('.scenario-buttons');
-            const archetypeButtonsContainer = document.querySelector('.archetype-buttons');
             const backButton = document.getElementById('back-button');
             const sendButton = document.getElementById('send-button');
             const chatInput = document.getElementById('chat-input');
@@ -531,22 +483,35 @@
             // --- State Variables ---
             let chat = [];
             let currentScenario = null;
-            let currentArchetype = 'C'; // Default to Patient Groomer
+            let currentArchetype = null; // Will be set by the selected scenario
             let loading = false;
             let quizIndex = 0;
             let isComposing = false;
 
             // --- Data ---
-            const archetypes = {
-                'A': { name: "Impulsive" },
-                'B': { name: "Manipulative" },
-                'C': { name: "Patient" }
-            };
-
+            // MODIFIED: Each scenario now has a built-in archetype.
             const scenarios = [
-                { title: 'Stranger Met in a Game', description: 'Start a conversation with a friendly stranger you met in an online game.', emoji: '🎮' },
-                { title: 'A Person Claiming to be a Casting Manager', description: 'Talk with a casting manager who approaches you, promising to make you a celebrity.', emoji: '🎬' },
-                { title: 'Friend Met on Social Media', description: 'Start a casual conversation with a peer you met by chance on social media.', emoji: '📱' }
+                {
+                    key: 'Stranger Met in a Game',
+                    title: 'Stranger in an Online Game',
+                    description: 'A friendly player seems nice and patient, building trust over time.',
+                    emoji: '🎮',
+                    archetype: 'C' // Patient Groomer
+                },
+                {
+                    key: 'A Person Claiming to be a Casting Manager',
+                    title: 'Suspicious Casting Offer',
+                    description: 'A "casting manager" contacts you with a tempting offer, seeking your consent for questionable requests.',
+                    emoji: '🎬',
+                    archetype: 'B' // Manipulative 'Consenter'
+                },
+                {
+                    key: 'Friend Met on Social Media', // This key is used for the backend
+                    title: 'Random Message on a Chat App',
+                    description: 'An unknown person sends you a direct and pushy message, getting straight to the point.',
+                    emoji: '💬',
+                    archetype: 'A' // Impulsive Approacher
+                }
             ];
             const quizQuestions = [
                 { text: 'Grooming offenders often ask victims to keep their conversations a ‘secret’.', answer: 'O', explanation: 'Offenders often suggest keeping conversations secret to psychologically isolate the victim.' },
@@ -559,7 +524,6 @@
             // --- Functions ---
 
             function renderSelectionScreen() {
-                // Render Scenarios
                 scenarioButtonsContainer.innerHTML = '';
                 scenarios.forEach(scenario => {
                     const button = document.createElement('button');
@@ -571,41 +535,24 @@
                             <p>${scenario.description}</p>
                         </div>
                     `;
-                    button.onclick = () => startSimulation(scenario.title);
+                    // Pass the whole scenario object to startSimulation
+                    button.onclick = () => startSimulation(scenario);
                     scenarioButtonsContainer.appendChild(button);
                 });
-
-                // Render Archetypes
-                archetypeButtonsContainer.innerHTML = '';
-                Object.keys(archetypes).forEach(key => {
-                    const button = document.createElement('button');
-                    button.className = 'archetype-button';
-                    button.dataset.archetype = key;
-                    button.textContent = archetypes[key].name;
-                    if (key === currentArchetype) {
-                        button.classList.add('active');
-                    }
-                    button.onclick = () => selectArchetype(key);
-                    archetypeButtonsContainer.appendChild(button);
-                });
-            }
-            
-            function selectArchetype(archetypeKey) {
-                currentArchetype = archetypeKey;
-                document.querySelectorAll('.archetype-button').forEach(btn => {
-                    btn.classList.toggle('active', btn.dataset.archetype === archetypeKey);
-                });
             }
 
-            function startSimulation(scenarioTitle) {
-                currentScenario = scenarioTitle;
+            function startSimulation(scenario) {
+                // Set both scenario key and archetype from the selected scenario object
+                currentScenario = scenario.key;
+                currentArchetype = scenario.archetype;
+                
                 selectionScreen.classList.remove('active');
                 chatScreen.classList.add('active');
                 
                 let initialMessage = 'Hi!';
-                if (scenarioTitle === 'A Person Claiming to be a Casting Manager') {
+                if (currentScenario === 'A Person Claiming to be a Casting Manager') {
                     initialMessage = 'Hello! Our company is currently preparing for a new idol group with a concept like NewJeans or ILLIT, and we think your image is a perfect fit. We\'re very excited because we feel you have the potential to become an idol.';
-                } else if (scenarioTitle === 'Stranger Met in a Game') {
+                } else if (currentScenario === 'Stranger Met in a Game') {
                     initialMessage = 'Hey! I\'m the person who just said hi to you in Roblox haha';
                 }
                 
@@ -618,6 +565,7 @@
                 selectionScreen.classList.add('active');
                 chat = [];
                 currentScenario = null;
+                currentArchetype = null;
             }
 
             function renderChat() {
@@ -660,7 +608,7 @@
                     const response = await fetch("/api/chat", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        // UPDATED: Pass both scenario and the selected archetype
+                        // UPDATED: Pass both scenario and the now-embedded archetype
                         body: JSON.stringify({ 
                             messages, 
                             scenario: currentScenario,
@@ -786,3 +734,4 @@
     </script>
 </body>
 </html>
+
